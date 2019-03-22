@@ -29,6 +29,7 @@ namespace FolderCleanerService
         public static string ProgramHeader { get; } = $"{ProgramName} v{ProgramVersion}{VERSION_INFO}{BUILD_CONFIGURATION}";
         public static string ProgramBuild { get; } = $"Build: {Properties.Resources.BuildTime} (UTC) CLR: {Assembly.GetExecutingAssembly().ImageRuntimeVersion} SHA256: {ProgramSHA256}";
         public static string ProgramLastCommit { get; } = $"Commit: {Properties.Resources.LastCommit}";
+        public static string ProgramAuthor { get; } = "Author: Daniil Shipilin";
 
         #endregion
 

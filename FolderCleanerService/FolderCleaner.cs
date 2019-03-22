@@ -10,11 +10,13 @@ namespace FolderCleanerService
     public class FolderCleaner
     {
         Timer _timer;
+        readonly SearchOption _so = SearchOption.AllDirectories;
+
         readonly List<string> _folders;
         readonly int _deleteFilesOlderThanDays;
         readonly List<string> _fileSearchPatterns;
         readonly int _checkFoldersIntervalMs;
-        readonly SearchOption _so;
+        readonly bool _checkFoldersAtServiceStart;
 
         public FolderCleaner()
         {
@@ -23,6 +25,7 @@ namespace FolderCleanerService
             string deleteFilesOlderThanDays = appSettings["DeleteFilesOlderThanDays"];
             string fileSearchPatterns = appSettings["FileSearchPatterns"];
             string checkFoldersIntervalMs = appSettings["CheckFoldersIntervalMs"];
+            string checkFoldersAtServiceStart = appSettings["CheckFoldersAtServiceStart"];
 
             if (!string.IsNullOrEmpty(cleanupFolders))
             {
@@ -50,7 +53,13 @@ namespace FolderCleanerService
                 }
             }
 
-            _so = SearchOption.AllDirectories;
+            if (!string.IsNullOrEmpty(checkFoldersAtServiceStart))
+            {
+                if (bool.TryParse(checkFoldersAtServiceStart, out bool tmp))
+                {
+                    _checkFoldersAtServiceStart = tmp;
+                }
+            }
         }
 
         private void InitTimer()
@@ -106,6 +115,11 @@ namespace FolderCleanerService
 
         public void Start()
         {
+            Console.WriteLine(Program.ProgramHeader);
+            Console.WriteLine(Program.ProgramBuild);
+            Console.WriteLine(Program.ProgramLastCommit);
+            Console.WriteLine(Program.ProgramAuthor);
+
             Console.WriteLine("Folders to clean:");
 
             foreach (var folder in _folders)
@@ -122,6 +136,12 @@ namespace FolderCleanerService
 
             Console.WriteLine($"DeleteFilesOlderThanDays: {_deleteFilesOlderThanDays}");
             Console.WriteLine($"CheckFoldersIntervalMs: {_checkFoldersIntervalMs}");
+
+            if (_checkFoldersAtServiceStart)
+            {
+                Console.WriteLine("Check folders at service start");
+                CheckFoldersEvent(null, null);
+            }
 
             InitTimer();
         }

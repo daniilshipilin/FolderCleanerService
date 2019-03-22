@@ -4,4 +4,4 @@ using System.Reflection;
 [assembly: AssemblyDescription("FolderCleanerService")]
 [assembly: AssemblyProduct("FolderCleanerService")]
 [assembly: AssemblyCopyright("Daniil Shipilin")]
-[assembly: AssemblyVersion("0.1.0")]
+[assembly: AssemblyVersion("0.2.0")]
