@@ -108,8 +108,6 @@ namespace FolderCleanerService
 
             _timer = new Timer(result.TotalMilliseconds) { AutoReset = true };
             _timer.Elapsed += CheckFoldersEvent;
-            _timer.Start();
-            //Console.WriteLine("Timer started");
         }
 
         private void StopTimer()
@@ -118,8 +116,16 @@ namespace FolderCleanerService
             //Console.WriteLine("Timer stopped");
         }
 
+        private void StartTimer()
+        {
+            _timer.Start();
+            //Console.WriteLine("Timer started");
+        }
+
         private void CheckFoldersEvent(object sender, ElapsedEventArgs e)
         {
+            if (_timer != null) { StopTimer(); }
+
             if (_checkFoldersEventExecuting) { return; }
             else { _checkFoldersEventExecuting = true; }
 
@@ -162,9 +168,8 @@ namespace FolderCleanerService
 
             Console.WriteLine($"{nameof(CheckFoldersEvent)} finished on {DateTime.Now}");
 
-            if (_timer != null) { StopTimer(); }
-
             InitTimer();
+            StartTimer();
             _checkFoldersEventExecuting = false;
         }
 
@@ -200,6 +205,7 @@ namespace FolderCleanerService
             else
             {
                 InitTimer();
+                StartTimer();
             }
         }
 
