@@ -10,12 +10,12 @@ namespace FolderCleanerService
     public class FolderCleaner
     {
         Timer _timer;
-        readonly SearchOption _so = SearchOption.AllDirectories;
+        static bool _checkFoldersEventExecuting;
 
-        readonly List<string> _folders;
+        readonly List<string> _dirs;
         readonly int _deleteFilesOlderThanDays;
         readonly List<string> _fileSearchPatterns;
-        readonly int _checkFoldersIntervalMs;
+        readonly TimeSpan _checkFoldersAtSpecificTime;
         readonly bool _checkFoldersAtServiceStart;
 
         public FolderCleaner()
@@ -24,20 +24,42 @@ namespace FolderCleanerService
             string cleanupFolders = appSettings["CleanupFolders"];
             string deleteFilesOlderThanDays = appSettings["DeleteFilesOlderThanDays"];
             string fileSearchPatterns = appSettings["FileSearchPatterns"];
-            string checkFoldersIntervalMs = appSettings["CheckFoldersIntervalMs"];
+            string checkFoldersAtSpecificTime = appSettings["CheckFoldersAtSpecificTime"];
             string checkFoldersAtServiceStart = appSettings["CheckFoldersAtServiceStart"];
 
             if (!string.IsNullOrEmpty(cleanupFolders))
             {
-                _folders = cleanupFolders.Split(new char[] { ';' }, StringSplitOptions.RemoveEmptyEntries).ToList();
+                _dirs = new List<string>();
+                var dirs = cleanupFolders.Split(new char[] { ';' }, StringSplitOptions.RemoveEmptyEntries);
+
+                foreach (var dir in dirs)
+                {
+                    // add only existing dirs
+                    if (Directory.Exists(dir)) { _dirs.Add(dir); }
+                }
             }
+
+            if (_dirs.Count < 1) { throw new Exception("'CleanupFolders' list is empty"); }
 
             if (!string.IsNullOrEmpty(deleteFilesOlderThanDays))
             {
                 if (int.TryParse(deleteFilesOlderThanDays, out int tmp))
                 {
-                    _deleteFilesOlderThanDays = tmp;
+                    if (tmp > 0) { _deleteFilesOlderThanDays = tmp; }
+                    else
+                    {
+                        throw new Exception("'DeleteFilesOlderThanDays' value should be positive integer");
+                    }
                 }
+                else
+                {
+                    throw new Exception("'DeleteFilesOlderThanDays' couldn't parse the value");
+                }
+            }
+
+            if (_deleteFilesOlderThanDays < 1)
+            {
+                throw new Exception($"'DeleteFilesOlderThanDays' value should be positive integer");
             }
 
             if (!string.IsNullOrEmpty(fileSearchPatterns))
@@ -45,12 +67,23 @@ namespace FolderCleanerService
                 _fileSearchPatterns = fileSearchPatterns.Split(new char[] { ';' }, StringSplitOptions.RemoveEmptyEntries).ToList();
             }
 
-            if (!string.IsNullOrEmpty(checkFoldersIntervalMs))
+            if (_fileSearchPatterns.Count < 1) { throw new Exception("'FileSearchPatterns' list is empty"); }
+
+            if (!string.IsNullOrEmpty(checkFoldersAtSpecificTime))
             {
-                if (int.TryParse(checkFoldersIntervalMs, out int tmp))
+                if (TimeSpan.TryParse(checkFoldersAtSpecificTime, out TimeSpan tmp))
                 {
-                    _checkFoldersIntervalMs = tmp;
+                    _checkFoldersAtSpecificTime = tmp;
                 }
+                else
+                {
+                    throw new Exception("'CheckFoldersAtSpecificTime' couldn't parse the value");
+                }
+            }
+
+            if (_checkFoldersAtSpecificTime == null)
+            {
+                throw new Exception("'CheckFoldersAtSpecificTime' value is null");
             }
 
             if (!string.IsNullOrEmpty(checkFoldersAtServiceStart))
@@ -59,58 +92,80 @@ namespace FolderCleanerService
                 {
                     _checkFoldersAtServiceStart = tmp;
                 }
+                else
+                {
+                    throw new Exception("'CheckFoldersAtServiceStart' couldn't parse the value");
+                }
             }
         }
 
         private void InitTimer()
         {
-            _timer = new Timer(_checkFoldersIntervalMs) { AutoReset = true };
+            var nowTimespan = DateTime.Now.TimeOfDay;
+            var result = (nowTimespan >= _checkFoldersAtSpecificTime)
+                         ? nowTimespan - _checkFoldersAtSpecificTime + TimeSpan.FromHours(24)
+                         : _checkFoldersAtSpecificTime - nowTimespan;
+
+            _timer = new Timer(result.TotalMilliseconds) { AutoReset = true };
             _timer.Elapsed += CheckFoldersEvent;
             _timer.Start();
-            Console.WriteLine("Timer started");
+            //Console.WriteLine("Timer started");
         }
 
         private void StopTimer()
         {
             _timer.Stop();
-            Console.WriteLine("Timer stopped");
+            //Console.WriteLine("Timer stopped");
         }
 
         private void CheckFoldersEvent(object sender, ElapsedEventArgs e)
         {
-            int filesDeleted = 0;
-            Console.WriteLine($"{nameof(CheckFoldersEvent)} fired at {DateTime.Now}");
+            if (_checkFoldersEventExecuting) { return; }
+            else { _checkFoldersEventExecuting = true; }
 
-            foreach (var folder in _folders)
+            int filesDeleted = 0;
+            long spaceFreedUpMb = 0;
+            Console.WriteLine($"{nameof(CheckFoldersEvent)} fired on {DateTime.Now}");
+
+            foreach (var dir in _dirs)
             {
-                if (!Directory.Exists(folder)) { Console.WriteLine($"'{folder}' doesn't exist"); continue; }
+                if (!Directory.Exists(dir)) { Console.WriteLine($"'{dir}' doesn't exist"); continue; }
+
+                Console.WriteLine($"Performing cleanup in '{dir}'");
 
                 foreach (var pattern in _fileSearchPatterns)
                 {
-                    var files = Directory.GetFiles(folder, pattern, _so).ToList();
-
-                    if (files.Count > 0)
+                    foreach (var file in Directory.GetFiles(dir, pattern, SearchOption.AllDirectories))
                     {
-                        Console.WriteLine($"{files.Count} files detected with pattern '{pattern}' in folder '{folder}'");
-
-                        foreach (var file in files)
+                        try
                         {
-                            try
+                            var fi = new FileInfo(file);
+
+                            if ((DateTime.Now - fi.LastWriteTime).TotalDays >= _deleteFilesOlderThanDays)
                             {
-                                if ((DateTime.Now - File.GetLastWriteTime(file)).TotalDays >= _deleteFilesOlderThanDays)
-                                {
-                                    File.Delete(file);
-                                    filesDeleted++;
-                                    Console.WriteLine($"'{file}' deleted");
-                                }
+                                File.Delete(file);
+                                filesDeleted++;
+                                spaceFreedUpMb += fi.Length;
+                                //Console.WriteLine($"'{file}' deleted");
                             }
-                            catch (Exception ex) { Console.WriteLine(ex.Message); }
                         }
+                        catch (Exception ex) { Console.WriteLine(ex.Message); }
                     }
                 }
             }
 
-            if (filesDeleted > 0) { Console.WriteLine($"Files deleted: {filesDeleted}"); }
+            if (filesDeleted > 0)
+            {
+                Console.WriteLine($"Total files deleted: {filesDeleted}");
+                Console.WriteLine($"Total space freed: {(double)spaceFreedUpMb / 1048576:0.00} MB");
+            }
+
+            Console.WriteLine($"{nameof(CheckFoldersEvent)} finished on {DateTime.Now}");
+
+            if (_timer != null) { StopTimer(); }
+
+            InitTimer();
+            _checkFoldersEventExecuting = false;
         }
 
         public void Start()
@@ -120,9 +175,9 @@ namespace FolderCleanerService
             Console.WriteLine(Program.ProgramLastCommit);
             Console.WriteLine(Program.ProgramAuthor);
 
-            Console.WriteLine("Folders to clean:");
+            Console.WriteLine("Dirs:");
 
-            foreach (var folder in _folders)
+            foreach (var folder in _dirs)
             {
                 Console.WriteLine($"'{folder}'");
             }
@@ -135,15 +190,17 @@ namespace FolderCleanerService
             }
 
             Console.WriteLine($"DeleteFilesOlderThanDays: {_deleteFilesOlderThanDays}");
-            Console.WriteLine($"CheckFoldersIntervalMs: {_checkFoldersIntervalMs}");
+            Console.WriteLine($"CheckFoldersAtSpecificTime: {_checkFoldersAtSpecificTime}");
+            Console.WriteLine($"CheckFoldersAtServiceStart: {_checkFoldersAtServiceStart}");
 
             if (_checkFoldersAtServiceStart)
             {
-                Console.WriteLine("Check folders at service start");
                 CheckFoldersEvent(null, null);
             }
-
-            InitTimer();
+            else
+            {
+                InitTimer();
+            }
         }
 
         public void Stop()
