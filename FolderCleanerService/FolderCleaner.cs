@@ -4,6 +4,7 @@ using System.Configuration;
 using System.IO;
 using System.Linq;
 using System.Timers;
+using static FolderCleanerService.GlobalEnum;
 
 namespace FolderCleanerService
 {
@@ -20,6 +21,7 @@ namespace FolderCleanerService
         bool CheckFoldersAtServiceStart { get; }
         bool RecursiveSearch { get; }
         bool DeleteEmptyFolders { get; }
+        bool LoggingEnabled { get; }
 
         static readonly List<string> _appConfig = new List<string>()
         {
@@ -29,7 +31,8 @@ namespace FolderCleanerService
                    nameof(CheckFoldersOnceADayAtSpecificTime),
                    nameof(CheckFoldersAtServiceStart),
                    nameof(RecursiveSearch),
-                   nameof(DeleteEmptyFolders)
+                   nameof(DeleteEmptyFolders),
+                   nameof(LoggingEnabled)
         };
 
         public FolderCleaner()
@@ -124,6 +127,19 @@ namespace FolderCleanerService
                         throw new Exception($"'{nameof(DeleteEmptyFolders)}' couldn't parse the value");
                     }
                 }
+                else if (key.Equals(nameof(LoggingEnabled)))
+                {
+                    if (bool.TryParse(val, out bool tmp))
+                    {
+                        LoggingEnabled = tmp;
+                    }
+                    else
+                    {
+                        throw new Exception($"'{nameof(LoggingEnabled)}' couldn't parse the value");
+                    }
+
+                    if (LoggingEnabled) { Logging.Instance = new Logging(); }
+                }
                 else
                 {
                     throw new Exception($"'{key}' key not found in '{AppDomain.CurrentDomain.SetupInformation.ConfigurationFile}'");
@@ -140,24 +156,24 @@ namespace FolderCleanerService
 
             _timer = new Timer(result.TotalMilliseconds) { AutoReset = true };
             _timer.Elapsed += CheckFoldersEvent;
-            Console.WriteLine("Timer created/initialized");
+            ConsoleHandler.Print("Timer created/initialized");
         }
 
         private void StopTimer()
         {
             _timer.Stop();
-            Console.WriteLine("Timer stopped");
+            ConsoleHandler.Print("Timer stopped");
         }
 
         private void StartTimer()
         {
             _timer.Start();
-            Console.WriteLine("Timer started");
+            ConsoleHandler.Print("Timer started");
         }
 
         private void CheckFoldersEvent(object sender, ElapsedEventArgs e)
         {
-            Console.WriteLine($"{nameof(CheckFoldersEvent)} fired on {DateTime.Now}");
+            ConsoleHandler.Print($"{nameof(CheckFoldersEvent)} fired on {DateTime.Now}");
 
             if (_timer != null) { StopTimer(); }
 
@@ -170,9 +186,9 @@ namespace FolderCleanerService
 
             foreach (var dir in CleanupFolders)
             {
-                if (!Directory.Exists(dir)) { Console.WriteLine($"'{dir}' doesn't exist"); continue; }
+                if (!Directory.Exists(dir)) { ConsoleHandler.Print($"'{dir}' doesn't exist"); continue; }
 
-                Console.WriteLine($"Performing cleanup in '{dir}'");
+                ConsoleHandler.Print($"Performing cleanup in '{dir}'");
 
                 foreach (var pattern in FileSearchPatterns)
                 {
@@ -191,7 +207,7 @@ namespace FolderCleanerService
                                 spaceFreedUpMb += size;
                             }
                         }
-                        catch (Exception ex) { Console.WriteLine(ex.Message); }
+                        catch (Exception ex) { ConsoleHandler.Print(ex.Message, MessageType.Exception); }
                     }
                 }
 
@@ -209,7 +225,7 @@ namespace FolderCleanerService
                                 di.Delete();
                                 emptyDirsDeleted++;
                             }
-                            catch (Exception ex) { Console.WriteLine(ex.Message); }
+                            catch (Exception ex) { ConsoleHandler.Print(ex.Message, MessageType.Exception); }
                         }
                     }
                 }
@@ -217,16 +233,16 @@ namespace FolderCleanerService
 
             if (filesDeleted > 0)
             {
-                Console.WriteLine($"Total files deleted: {filesDeleted}");
-                Console.WriteLine($"Total space freed: {(double)spaceFreedUpMb / 1048576:0.00} MB");
+                ConsoleHandler.Print($"Total files deleted: {filesDeleted}", MessageType.Info);
+                ConsoleHandler.Print($"Total space freed: {(double)spaceFreedUpMb / 1048576:0.00} MB", MessageType.Info);
             }
 
             if (emptyDirsDeleted > 0)
             {
-                Console.WriteLine($"Total empty dirs deleted: {emptyDirsDeleted}");
+                ConsoleHandler.Print($"Total empty dirs deleted: {emptyDirsDeleted}", MessageType.Info);
             }
 
-            Console.WriteLine($"{nameof(CheckFoldersEvent)} finished on {DateTime.Now}");
+            ConsoleHandler.Print($"{nameof(CheckFoldersEvent)} finished on {DateTime.Now}");
 
             InitTimer();
             StartTimer();
@@ -235,30 +251,31 @@ namespace FolderCleanerService
 
         public void Start()
         {
-            Console.WriteLine(Program.ProgramHeader);
-            Console.WriteLine(Program.ProgramBuild);
-            Console.WriteLine(Program.ProgramLastCommit);
-            Console.WriteLine(Program.ProgramAuthor);
+            ConsoleHandler.Print(Program.ProgramHeader);
+            ConsoleHandler.Print(Program.ProgramBuild);
+            ConsoleHandler.Print(Program.ProgramLastCommit);
+            ConsoleHandler.Print(Program.ProgramAuthor);
 
-            Console.WriteLine($"{nameof(CleanupFolders)}:");
+            ConsoleHandler.Print($"{nameof(CleanupFolders)}:");
 
             foreach (var folder in CleanupFolders)
             {
-                Console.WriteLine($"'{folder}'");
+                ConsoleHandler.Print($"'{folder}'");
             }
 
-            Console.WriteLine($"{nameof(FileSearchPatterns)}:");
+            ConsoleHandler.Print($"{nameof(FileSearchPatterns)}:");
 
             foreach (var pattern in FileSearchPatterns)
             {
-                Console.WriteLine($"'{pattern}'");
+                ConsoleHandler.Print($"'{pattern}'");
             }
 
-            Console.WriteLine($"{nameof(DeleteFilesOlderThanDays)}: {DeleteFilesOlderThanDays}");
-            Console.WriteLine($"{nameof(CheckFoldersOnceADayAtSpecificTime)}: {CheckFoldersOnceADayAtSpecificTime}");
-            Console.WriteLine($"{nameof(CheckFoldersAtServiceStart)}: {CheckFoldersAtServiceStart}");
-            Console.WriteLine($"{nameof(RecursiveSearch)}: {RecursiveSearch}");
-            Console.WriteLine($"{nameof(DeleteEmptyFolders)}: {DeleteEmptyFolders}");
+            ConsoleHandler.Print($"{nameof(DeleteFilesOlderThanDays)}: {DeleteFilesOlderThanDays}");
+            ConsoleHandler.Print($"{nameof(CheckFoldersOnceADayAtSpecificTime)}: {CheckFoldersOnceADayAtSpecificTime}");
+            ConsoleHandler.Print($"{nameof(CheckFoldersAtServiceStart)}: {CheckFoldersAtServiceStart}");
+            ConsoleHandler.Print($"{nameof(RecursiveSearch)}: {RecursiveSearch}");
+            ConsoleHandler.Print($"{nameof(DeleteEmptyFolders)}: {DeleteEmptyFolders}");
+            ConsoleHandler.Print($"{nameof(LoggingEnabled)}: {LoggingEnabled}");
 
             if (CheckFoldersAtServiceStart)
             {
@@ -274,11 +291,13 @@ namespace FolderCleanerService
         public void Stop()
         {
             StopTimer();
+
+            if (Logging.Instance != null) { Logging.Instance.FlushLogBuffer(); }
         }
 
         public void Shutdown()
         {
-            StopTimer();
+            Stop();
         }
     }
 }
