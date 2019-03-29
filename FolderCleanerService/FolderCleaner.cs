@@ -15,13 +15,13 @@ namespace FolderCleanerService
         readonly SearchOption _so = SearchOption.TopDirectoryOnly;
 
         List<string> CleanupFolders { get; }
-        int DeleteFilesOlderThanDays { get; }
+        public int DeleteFilesOlderThanDays { get; }
         List<string> FileSearchPatterns { get; }
-        TimeSpan CheckFoldersOnceADayAtSpecificTime { get; }
-        bool CheckFoldersAtServiceStart { get; }
-        bool RecursiveSearch { get; }
-        bool DeleteEmptyFolders { get; }
-        bool LoggingEnabled { get; }
+        public TimeSpan CheckFoldersOnceADayAtSpecificTime { get; }
+        public bool CheckFoldersAtServiceStart { get; }
+        public bool RecursiveSearch { get; }
+        public bool DeleteEmptyFolders { get; }
+        public bool LoggingEnabled { get; }
 
         static readonly List<string> _appConfig = new List<string>()
         {
@@ -155,7 +155,7 @@ namespace FolderCleanerService
                          : CheckFoldersOnceADayAtSpecificTime - nowTimespan;
 
             _timer = new Timer(result.TotalMilliseconds) { AutoReset = true };
-            _timer.Elapsed += CheckFoldersEvent;
+            _timer.Elapsed += (sender, e) => CheckFoldersEvent();
             ConsoleHandler.Print("Timer created/initialized");
         }
 
@@ -171,7 +171,7 @@ namespace FolderCleanerService
             ConsoleHandler.Print("Timer started");
         }
 
-        private void CheckFoldersEvent(object sender, ElapsedEventArgs e)
+        private void CheckFoldersEvent()
         {
             ConsoleHandler.Print($"{nameof(CheckFoldersEvent)} fired on {DateTime.Now}");
 
@@ -255,6 +255,7 @@ namespace FolderCleanerService
             ConsoleHandler.Print(Program.ProgramBuild);
             ConsoleHandler.Print(Program.ProgramLastCommit);
             ConsoleHandler.Print(Program.ProgramAuthor);
+            ConsoleHandler.Print("Program config:");
 
             ConsoleHandler.Print($"{nameof(CleanupFolders)}:");
 
@@ -270,16 +271,14 @@ namespace FolderCleanerService
                 ConsoleHandler.Print($"'{pattern}'");
             }
 
-            ConsoleHandler.Print($"{nameof(DeleteFilesOlderThanDays)}: {DeleteFilesOlderThanDays}");
-            ConsoleHandler.Print($"{nameof(CheckFoldersOnceADayAtSpecificTime)}: {CheckFoldersOnceADayAtSpecificTime}");
-            ConsoleHandler.Print($"{nameof(CheckFoldersAtServiceStart)}: {CheckFoldersAtServiceStart}");
-            ConsoleHandler.Print($"{nameof(RecursiveSearch)}: {RecursiveSearch}");
-            ConsoleHandler.Print($"{nameof(DeleteEmptyFolders)}: {DeleteEmptyFolders}");
-            ConsoleHandler.Print($"{nameof(LoggingEnabled)}: {LoggingEnabled}");
+            foreach (var prop in GetType().GetProperties())
+            {
+                ConsoleHandler.Print($"{prop.Name}: {prop.GetValue(this)}");
+            }
 
             if (CheckFoldersAtServiceStart)
             {
-                CheckFoldersEvent(null, null);
+                CheckFoldersEvent();
             }
             else
             {
