@@ -42,15 +42,15 @@ namespace FolderCleanerService
                     sc.ConstructUsing(() => new FolderCleaner());
 
                     // the start and stop methods for the service
-                    sc.WhenStarted(s => s.Start());
-                    sc.WhenStopped(s => s.Stop());
+                    sc.WhenStarted((s, hostControl) => s.Start(hostControl));
+                    sc.WhenStopped((s, hostControl) => s.Stop(hostControl));
 
                     // optional pause/continue methods if used
                     //sc.WhenPaused(s => s.Pause());
                     //sc.WhenContinued(s => s.Continue());
 
                     // optional, when shutdown is supported
-                    sc.WhenShutdown(s => s.Shutdown());
+                    sc.WhenShutdown((s, hostControl) => s.Shutdown(hostControl));
                 });
 
                 x.RunAsLocalSystem();

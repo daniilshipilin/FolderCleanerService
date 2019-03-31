@@ -4,14 +4,17 @@ using System.Configuration;
 using System.IO;
 using System.Linq;
 using System.Timers;
+using Topshelf;
 using static FolderCleanerService.GlobalEnum;
 
 namespace FolderCleanerService
 {
-    public class FolderCleaner
+    public class FolderCleaner : ServiceControl
     {
+        // reference to the service host
+        HostControl _hostControl;
+
         Timer _timer;
-        static bool _checkFoldersEventExecuting;
         readonly SearchOption _so = SearchOption.TopDirectoryOnly;
 
         List<string> CleanupFolders { get; }
@@ -147,16 +150,17 @@ namespace FolderCleanerService
             }
         }
 
-        private void InitTimer()
+        private void InitStartTimer()
         {
             var nowTimespan = DateTime.Now.TimeOfDay;
             var result = (nowTimespan >= CheckFoldersOnceADayAtSpecificTime)
                          ? nowTimespan - CheckFoldersOnceADayAtSpecificTime + TimeSpan.FromHours(24)
                          : CheckFoldersOnceADayAtSpecificTime - nowTimespan;
 
-            _timer = new Timer(result.TotalMilliseconds) { AutoReset = true };
+            _timer = new Timer(result.TotalMilliseconds) { AutoReset = false };
             _timer.Elapsed += (sender, e) => CheckFoldersEvent();
-            ConsoleHandler.Print("Timer created/initialized");
+            _timer.Start();
+            ConsoleHandler.Print("Timer initialized and started");
         }
 
         private void StopTimer()
@@ -165,20 +169,9 @@ namespace FolderCleanerService
             ConsoleHandler.Print("Timer stopped");
         }
 
-        private void StartTimer()
-        {
-            _timer.Start();
-            ConsoleHandler.Print("Timer started");
-        }
-
         private void CheckFoldersEvent()
         {
             ConsoleHandler.Print($"{nameof(CheckFoldersEvent)} fired on {DateTime.Now}");
-
-            if (_timer != null) { StopTimer(); }
-
-            if (_checkFoldersEventExecuting) { return; }
-            else { _checkFoldersEventExecuting = true; }
 
             int filesDeleted = 0;
             long spaceFreedUpMb = 0;
@@ -244,13 +237,16 @@ namespace FolderCleanerService
 
             ConsoleHandler.Print($"{nameof(CheckFoldersEvent)} finished on {DateTime.Now}");
 
-            InitTimer();
-            StartTimer();
-            _checkFoldersEventExecuting = false;
+            InitStartTimer();
         }
 
-        public void Start()
+        /// <summary>
+        /// Starts the service.
+        /// </summary>
+        public bool Start(HostControl hostControl)
         {
+            _hostControl = hostControl;
+
             ConsoleHandler.Print(Program.ProgramHeader);
             ConsoleHandler.Print(Program.ProgramBuild);
             ConsoleHandler.Print(Program.ProgramLastCommit);
@@ -276,27 +272,38 @@ namespace FolderCleanerService
                 ConsoleHandler.Print($"{prop.Name}: {prop.GetValue(this)}");
             }
 
-            if (CheckFoldersAtServiceStart)
-            {
-                CheckFoldersEvent();
-            }
-            else
-            {
-                InitTimer();
-                StartTimer();
-            }
+            if (CheckFoldersAtServiceStart) { CheckFoldersEvent(); }
+            else { InitStartTimer(); }
+
+            return (true);
         }
 
-        public void Stop()
+        /// <summary>
+        /// Stops the service.
+        /// </summary>
+        public bool Stop(HostControl hostControl)
         {
             StopTimer();
 
             if (Logging.Instance != null) { Logging.Instance.FlushLogBuffer(); }
+
+            return (true);
         }
 
-        public void Shutdown()
+        /// <summary>
+        /// Service shutdown.
+        /// </summary>
+        public bool Shutdown(HostControl hostControl)
         {
-            Stop();
+            return (Stop(hostControl));
+        }
+
+        /// <summary>
+        /// This method stops the service using HostControl reference.
+        /// </summary>
+        private void StopProgrammatically()
+        {
+            _hostControl.Stop();
         }
     }
 }
