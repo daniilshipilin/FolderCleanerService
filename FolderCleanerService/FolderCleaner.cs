@@ -154,7 +154,7 @@ namespace FolderCleanerService
         {
             var nowTimespan = DateTime.Now.TimeOfDay;
             var result = (nowTimespan >= CheckFoldersOnceADayAtSpecificTime)
-                         ? nowTimespan - CheckFoldersOnceADayAtSpecificTime + TimeSpan.FromHours(24)
+                         ? CheckFoldersOnceADayAtSpecificTime - nowTimespan + TimeSpan.FromHours(24)
                          : CheckFoldersOnceADayAtSpecificTime - nowTimespan;
 
             _timer = new Timer(result.TotalMilliseconds) { AutoReset = false };
