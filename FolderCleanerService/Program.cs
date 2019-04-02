@@ -56,8 +56,8 @@ namespace FolderCleanerService
                 x.RunAsLocalSystem();
 
                 x.SetServiceName("FolderCleaner_Service");
-                x.SetDisplayName("Folder Cleaner Service");
-                x.SetDescription("Folder cleaner service application.");
+                x.SetDisplayName("Folder Cleaner");
+                x.SetDescription("Folder Cleaner service application.");
                 x.SetHelpTextPrefix(ProgramBuild);
 
                 //x.EnablePauseAndContinue();
