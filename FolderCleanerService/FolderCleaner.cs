@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Configuration;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Timers;
@@ -177,6 +178,8 @@ namespace FolderCleanerService
             long spaceFreedUpMb = 0;
             int emptyDirsDeleted = 0;
 
+            var sw = Stopwatch.StartNew();
+
             foreach (var dir in CleanupFolders)
             {
                 if (!Directory.Exists(dir)) { ConsoleHandler.Print($"'{dir}' doesn't exist"); continue; }
@@ -223,6 +226,9 @@ namespace FolderCleanerService
                     }
                 }
             }
+
+            sw.Stop();
+            ConsoleHandler.Print($"Time elapsed: {sw.ElapsedMilliseconds} ms", MessageType.Info);
 
             if (filesDeleted > 0)
             {
