@@ -4,6 +4,7 @@ using System.Configuration;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
 using System.Timers;
 using Topshelf;
 using static FolderCleanerService.GlobalEnum;
@@ -17,6 +18,7 @@ namespace FolderCleanerService
 
         Timer _timer;
         readonly SearchOption _so = SearchOption.TopDirectoryOnly;
+        static bool _checkFoldersEventIsExecuting;
 
         public readonly List<string> CleanupFolders;
         public int DeleteFilesOlderThanDays { get; }
@@ -153,13 +155,18 @@ namespace FolderCleanerService
 
         private void InitStartTimer()
         {
-            var nowTimespan = DateTime.Now.TimeOfDay;
-            var result = (nowTimespan >= CheckFoldersOnceADayAtSpecificTime)
-                         ? CheckFoldersOnceADayAtSpecificTime - nowTimespan + TimeSpan.FromHours(24)
-                         : CheckFoldersOnceADayAtSpecificTime - nowTimespan;
-
-            _timer = new Timer(result.TotalMilliseconds) { AutoReset = false };
-            _timer.Elapsed += (sender, e) => CheckFoldersEvent();
+            _timer = new Timer(100) { AutoReset = true };
+            _timer.Elapsed += (sender, e) =>
+            {
+                if (!_checkFoldersEventIsExecuting)
+                {
+                    if ((int)DateTime.Now.TimeOfDay.TotalSeconds == (int)CheckFoldersOnceADayAtSpecificTime.TotalSeconds)
+                    {
+                        var task = CheckFoldersEvent();
+                        Task.WaitAll(task);
+                    }
+                }
+            };
             _timer.Start();
             ConsoleHandler.Print("Timer initialized and started");
         }
@@ -170,8 +177,9 @@ namespace FolderCleanerService
             ConsoleHandler.Print("Timer stopped");
         }
 
-        private void CheckFoldersEvent()
+        private async Task CheckFoldersEvent()
         {
+            _checkFoldersEventIsExecuting = true;
             ConsoleHandler.Print($"{nameof(CheckFoldersEvent)} fired on {DateTime.Now}");
 
             int filesDeleted = 0;
@@ -243,7 +251,9 @@ namespace FolderCleanerService
 
             ConsoleHandler.Print($"{nameof(CheckFoldersEvent)} finished on {DateTime.Now}");
 
-            InitStartTimer();
+            // 1 sec. delay, to make sure, that this method wont be called again in the same time frame (second), since task should be executed once at specific time
+            await Task.Delay(1000);
+            _checkFoldersEventIsExecuting = false;
         }
 
         /// <summary>
@@ -256,8 +266,9 @@ namespace FolderCleanerService
             ConsoleHandler.PrintProgramHeader();
             ConsoleHandler.PrintConfiguration(this);
 
-            if (CheckFoldersAtServiceStart) { CheckFoldersEvent(); }
-            else { InitStartTimer(); }
+            if (CheckFoldersAtServiceStart) { Task.Run(() => CheckFoldersEvent()); }
+
+            InitStartTimer();
 
             return (true);
         }
