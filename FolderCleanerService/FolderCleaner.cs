@@ -18,9 +18,9 @@ namespace FolderCleanerService
         Timer _timer;
         readonly SearchOption _so = SearchOption.TopDirectoryOnly;
 
-        List<string> CleanupFolders { get; }
+        public readonly List<string> CleanupFolders;
         public int DeleteFilesOlderThanDays { get; }
-        List<string> FileSearchPatterns { get; }
+        public readonly List<string> FileSearchPatterns;
         public TimeSpan CheckFoldersOnceADayAtSpecificTime { get; }
         public bool CheckFoldersAtServiceStart { get; }
         public bool RecursiveSearch { get; }
@@ -253,30 +253,8 @@ namespace FolderCleanerService
         {
             _hostControl = hostControl;
 
-            ConsoleHandler.Print(Program.ProgramHeader);
-            ConsoleHandler.Print(Program.ProgramBuild);
-            ConsoleHandler.Print(Program.ProgramLastCommit);
-            ConsoleHandler.Print(Program.ProgramAuthor);
-            ConsoleHandler.Print("Program config:");
-
-            ConsoleHandler.Print($"{nameof(CleanupFolders)}:");
-
-            foreach (var folder in CleanupFolders)
-            {
-                ConsoleHandler.Print($"'{folder}'");
-            }
-
-            ConsoleHandler.Print($"{nameof(FileSearchPatterns)}:");
-
-            foreach (var pattern in FileSearchPatterns)
-            {
-                ConsoleHandler.Print($"'{pattern}'");
-            }
-
-            foreach (var prop in GetType().GetProperties())
-            {
-                ConsoleHandler.Print($"{prop.Name}: {prop.GetValue(this)}");
-            }
+            ConsoleHandler.PrintProgramHeader();
+            ConsoleHandler.PrintConfiguration(this);
 
             if (CheckFoldersAtServiceStart) { CheckFoldersEvent(); }
             else { InitStartTimer(); }

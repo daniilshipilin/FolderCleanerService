@@ -1,5 +1,6 @@
 using System;
 using System.Diagnostics;
+using System.Text;
 using static FolderCleanerService.GlobalEnum;
 
 namespace FolderCleanerService
@@ -15,6 +16,44 @@ namespace FolderCleanerService
             {
                 Logging.Instance.AddEntry(new Logging.LogEntry(callingMethodName, messageType, message));
             }
+        }
+
+        public static void PrintProgramHeader()
+        {
+            var sb = new StringBuilder();
+            sb.AppendLine("Program Header:");
+            sb.AppendLine(Program.ProgramHeader);
+            sb.AppendLine(Program.ProgramBuild);
+            sb.AppendLine(Program.ProgramLastCommit);
+            sb.AppendLine(Program.ProgramAuthor);
+
+            Print(sb.ToString());
+        }
+
+        public static void PrintConfiguration(FolderCleaner instance)
+        {
+            var sb = new StringBuilder();
+            sb.AppendLine("Program Config:");
+            sb.AppendLine($"{nameof(instance.CleanupFolders)}:");
+
+            foreach (var folder in instance.CleanupFolders)
+            {
+                sb.AppendLine($"'{folder}'");
+            }
+
+            sb.AppendLine($"{nameof(instance.FileSearchPatterns)}:");
+
+            foreach (var pattern in instance.FileSearchPatterns)
+            {
+                sb.AppendLine($"'{pattern}'");
+            }
+
+            foreach (var prop in instance.GetType().GetProperties())
+            {
+                sb.AppendLine($"{prop.Name}: {prop.GetValue(instance)}");
+            }
+
+            Print(sb.ToString());
         }
     }
 }
