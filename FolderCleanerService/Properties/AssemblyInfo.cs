@@ -1,7 +1,7 @@
 using System.Reflection;
 
-[assembly: AssemblyTitle("FolderCleanerService")]
-[assembly: AssemblyDescription("FolderCleanerService")]
-[assembly: AssemblyProduct("FolderCleanerService")]
+[assembly: AssemblyTitle("FolderCleaner")]
+[assembly: AssemblyDescription("Folder Cleaner service application.")]
+[assembly: AssemblyProduct("FolderCleaner")]
 [assembly: AssemblyCopyright("Daniil Shipilin")]
-[assembly: AssemblyVersion("0.6.2")]
+[assembly: AssemblyVersion("0.6.3")]
