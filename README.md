@@ -2,7 +2,7 @@
 
 # FolderCleanerService
 
-### Author: Daniil Shipilin (daniil.shipilin@gmail.com)
+### Author: Daniil Shipilin
 
 ### Description
 
