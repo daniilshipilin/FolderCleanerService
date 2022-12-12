@@ -2,8 +2,4 @@
 
 # FolderCleanerService
 
-### Author: Daniil Shipilin
-
-### Description
-
 Folder Cleaner service application.
